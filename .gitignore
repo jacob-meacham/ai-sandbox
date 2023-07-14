@@ -1,3 +1,7 @@
 .cache/
 docs/
 .idea/
+*.csv
+__pycache__/
+.DS_Store
+.cx_cache/
