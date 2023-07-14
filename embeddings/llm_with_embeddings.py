@@ -26,7 +26,12 @@ class ModelWithEmbeddings:
         embedded_docs = '\n\nHelp Article:\n'.join(docs_to_add)
 
         # TODO: Use templates and system messages within this.
-        prompt = self.prompt_template.format({
+        t = {
+            'input_text': input_text,
+            'embedded_docs': embedded_docs,
+            **context
+        }
+        prompt = self.prompt_template.format(**{
             'input_text': input_text,
             'embedded_docs': embedded_docs,
             **context

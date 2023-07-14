@@ -3,9 +3,9 @@ import csv
 
 import langchain.llms
 
-from embeddings.cx_bot import PROMPT_TEMPLATE
+from embeddings.cx_bot import PROMPT_TEMPLATE, get_embeddings
 from embeddings.llm_with_embeddings import ModelWithEmbeddings
-from embeddings.openai import get_openai_api_key, get_embeddings
+from embeddings.openai_utils import get_openai_api_key
 
 MODEL = 'gpt-3.5-turbo'
 
@@ -22,14 +22,14 @@ def main(docs_dir, cache_dir, input_requests, output_responses):
             match row['platform']:
                 case 'MINDBODY':
                     context = {
-                        'phone': 'a',
+                        'phone': '1-877-755-4279',
                         'customer_tier': row['tier'] if row['tier'] else 'Accelerate',
                         'customer_platform': 'MINDBODY',
                         'features': row['features'].split(',') if row['features'] else 'This customer uses the New Mindbody Experience'
                     }
                 case 'Booker':
                     context = {
-                        'phone': 'a',
+                        'phone': '1-866-966-9798',
                         'customer_tier': 'V1',
                         'customer_platform': 'Booker',
                         'features': []
@@ -41,7 +41,11 @@ def main(docs_dir, cache_dir, input_requests, output_responses):
                 'context': context
             })
 
-    responses = [model.submit_query(t['query'], t['context'], {'product': t['customer_platform']}) for t in tests]
+    responses = []
+    for t in tests:
+        response = model.submit_query(t['query'], t['context'], {'product': t['customer_platform']})
+        print(response)
+        responses.append(response)
 
     defaults = {
         'Was the Response Accurate': '',
@@ -74,5 +78,4 @@ def parse_options():
 
 if __name__ == '__main__':
     options = parse_options()
-
     main(options.docs_dir, options.cache_dir, options.input_requests, options.output_responses)
