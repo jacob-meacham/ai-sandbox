@@ -1,6 +1,7 @@
 import argparse
 import csv
 import os
+import sys
 
 import langchain.llms
 import streamlit as st
@@ -129,7 +130,7 @@ def st_main(docs_dir, cache_dir):
 
 def parse_options():
     parser = argparse.ArgumentParser()
-    parser.add_argument('docs_dir')
+    parser.add_argument('--docs_dir', default='./docs/')
     parser.add_argument('--cache-dir', default='./.cx_cache')
     parser.add_argument('--force-cache-rebuild', default=False)
     return parser.parse_args()

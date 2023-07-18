@@ -1,0 +1,25 @@
+FROM python:3.11-slim
+
+WORKDIR /app/embeddings
+
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    curl \
+    software-properties-common \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt ./
+
+RUN pip3 install -r requirements.txt
+
+COPY embeddings/cx_bot.py embeddings/llm_with_embeddings.py embeddings/openai_utils.py ./
+ADD embeddings/.cx_cache/* ./.cx_cache/
+
+EXPOSE 8501
+
+HEALTHCHECK CMD curl --fail http://localhost:8501/_stcore/health
+
+# Kludge
+ENV PYTHONPATH="${PYTHONPATH}:/app:/app/embeddings"
+
+ENTRYPOINT ["streamlit", "run", "cx_bot.py", "--server.port=8501", "--server.address=0.0.0.0"]

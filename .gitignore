@@ -5,3 +5,4 @@ docs/
 __pycache__/
 .DS_Store
 .cx_cache/
+.classpass_cache/

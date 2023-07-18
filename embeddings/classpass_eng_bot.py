@@ -4,7 +4,7 @@ import os
 import streamlit as st
 import langchain.llms
 from langchain.embeddings import OpenAIEmbeddings
-from langchain.text_splitter import MarkdownHeaderTextSplitter
+from langchain.text_splitter import MarkdownHeaderTextSplitter, RecursiveCharacterTextSplitter
 from langchain.vectorstores import Chroma
 from markdownify import markdownify
 
@@ -15,10 +15,15 @@ EMBEDDING_MODEL = "text-embedding-ada-002"
 
 # TODO: Move into a template file
 PROMPT_TEMPLATE = "You are a helpful chat bot for engineers and you have knowledge of an internal document repository. You should prioritize accuracy. If you don't know the answer, " \
-                  "you should respond with \"I'm not sure and don't want to speculate\". You are chatting with an engineer. Use the below articles" \
+                  "you should respond with \"I'm not sure and don't want to speculate\". You are chatting with an engineer. Use only information from the internal knowledge articles" \
                   "to answer the question. {embedded_docs}" \
                   "\nThis engineer's question is:" \
                   "\n{input_text}"
+
+def chunks(lst, n):
+    """Yield successive n-sized chunks from lst."""
+    for i in range(0, len(lst), n):
+        yield lst[i:i + n]
 
 def build_embeddings(embedding_fn, docs_dir, cache_dir):
     input_files = []
@@ -26,19 +31,45 @@ def build_embeddings(embedding_fn, docs_dir, cache_dir):
         for file in files:
             input_files.append(os.path.join(root, file))
 
-    # Consider using a Markdown-aware Splitter instead
+    headers_to_split_on = [
+        ("#", "Header 1"),
+        ("##", "Header 2"),
+        ('###', "Header 3")
+    ]
+
+
+    docs = []
+    # TODO: This had problems
+    # text_splitter = MarkdownHeaderTextSplitter(headers_to_split_on)
+    # for file in input_files:
+    #     with open(file, 'r') as f:
+    #         text = markdownify(f.read())
+    #         docs.extend(text_splitter.split_text(text))
+
     texts = []
-    metadatas = []
-    text_splitter = MarkdownHeaderTextSplitter()
+    text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
     for file in input_files:
         with open(file, 'r') as f:
             texts.append(markdownify(f.read()))
-            metadatas.append({
-                'title': file
-            })
 
-    docs = text_splitter.create_documents(texts, metadatas=metadatas)
-    embedding_db = Chroma.from_documents(docs, embedding_fn, persist_directory=cache_dir)
+    docs = text_splitter.create_documents(texts)
+
+    print(f'Created {len(docs)} sections to embed')
+
+    embedding_db = Chroma(embedding_function=embedding_fn, persist_directory=cache_dir)
+
+    # TODO: Having some stability issues with the OpenAI API
+    for doc_chunk in chunks(docs, 500):
+        print(f'Adding {len(doc_chunk)} docs!')
+        retries = 0
+        while retries < 3:
+            try:
+                embedding_db.add_documents(doc_chunk)
+                retries = 10
+            except:
+                retries += 1
+
+    embedding_db.persist()
     return embedding_db
 
 
@@ -61,7 +92,7 @@ def st_main(docs_dir, cache_dir):
 
     if 'messages' not in st.session_state:
         st.session_state.messages = []
-    st.session_state.messages.append({'role': 'assistant',
+        st.session_state.messages.append({'role': 'assistant',
                                       'content': "Welcome to ClassPass Engineering chat. What can I help you with?"})
 
     for message in st.session_state.messages:
@@ -80,7 +111,7 @@ def st_main(docs_dir, cache_dir):
             case 'small':
                 model = 'gpt-3.5-turbo'
 
-        temperature = st.slider(min_value=0.0, max_value=1.0)
+        temperature = st.slider("Temperature", min_value=0.0, max_value=1.0, value=0.7, step=0.05)
 
     llm = langchain.llms.OpenAI(temperature=temperature, model_name=model, openai_api_key=get_openai_api_key())
     embeddings_db = get_embeddings(docs_dir, cache_dir)
