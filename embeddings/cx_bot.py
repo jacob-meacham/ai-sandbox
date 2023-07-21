@@ -55,7 +55,7 @@ def get_embeddings_db(docs_dir, chroma_db_path, force_cache_rebuild=False):
 
 # TODO: Move into a template file
 PROMPT_TEMPLATE = "You are a helpful chat agent. You should prioritize accuracy. If you don't know the answer, " \
-                  "you should respond with \"Please call us at {phone}\". You are chatting with a business owner who uses {customer_platform}, and should only respond with information related to {customer_platform}. " \
+                  "you should respond with \"I'm sorry, I don't know the answer to that question. Please call us at {phone}\". You are chatting with a business owner who uses {customer_platform}, and should only respond with information related to {customer_platform}. " \
                   "This customer is on the {customer_tier} tier, and has the following features enabled: {features}. Use the below articles " \
                   "to answer the question.\n\n{embedded_docs}" \
                   "\n\nThis customer's question is:" \
@@ -68,6 +68,11 @@ def chat_message(role, text):
 
 
 def st_main(docs_dir, chroma_db_path, force_cache_rebuild=False):
+    st.set_page_config(
+        page_title="Mindbody Internal CX Bot",
+        page_icon="🤖",
+    )
+
     st.title("Mindbody CX Bot")
 
     if 'messages' not in st.session_state:
