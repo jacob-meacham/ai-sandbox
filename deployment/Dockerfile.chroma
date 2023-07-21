@@ -1,0 +1,10 @@
+FROM chroma-core-mac
+
+WORKDIR /chroma
+
+COPY embeddings/.cx_cache/ chroma/
+
+
+EXPOSE 8000
+
+CMD ["/docker_entrypoint.sh"]

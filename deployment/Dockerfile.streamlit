@@ -13,7 +13,6 @@ COPY requirements.txt ./
 RUN pip3 install -r requirements.txt
 
 COPY embeddings/cx_bot.py embeddings/llm_with_embeddings.py embeddings/openai_utils.py ./
-ADD embeddings/.cx_cache/* ./.cx_cache/
 
 EXPOSE 8501
 
@@ -22,4 +21,5 @@ HEALTHCHECK CMD curl --fail http://localhost:8501/_stcore/health
 # Kludge
 ENV PYTHONPATH="${PYTHONPATH}:/app:/app/embeddings"
 
-ENTRYPOINT ["streamlit", "run", "cx_bot.py", "--server.port=8501", "--server.address=0.0.0.0"]
+# Networking kludge
+ENTRYPOINT ["streamlit", "run", "cx_bot.py", "--server.port=8501", "--server.address=0.0.0.0", "--", "--chroma-db", "http://localhost:8000"]

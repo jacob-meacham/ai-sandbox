@@ -37,4 +37,4 @@ class ModelWithEmbeddings:
             **context
         })
 
-        return self.llm(prompt)
+        return self.llm(prompt), prompt

@@ -1,8 +1,9 @@
 import argparse
 import csv
 import os
-import sys
+import urllib.parse
 
+import chromadb
 import langchain.llms
 import streamlit as st
 from langchain.embeddings.openai import OpenAIEmbeddings
@@ -14,6 +15,7 @@ from embeddings.openai_utils import get_openai_api_key
 
 EMBEDDING_MODEL = "text-embedding-ada-002"
 
+# TODO: Won't work with external ChromaDB
 def build_embeddings(embedding_fn, docs_dir, cache_dir):
     input_files = []
     for root, dirs, files in os.walk(docs_dir):
@@ -37,20 +39,26 @@ def build_embeddings(embedding_fn, docs_dir, cache_dir):
 
 
 # TODO: Probably separate out building the vector DB with loading it.
-def get_embeddings(docs_dir, cache_dir, force_cache_rebuild=False):
+def get_embeddings_db(docs_dir, chroma_db_path, force_cache_rebuild=False):
     embedding_fn = OpenAIEmbeddings(openai_api_key=get_openai_api_key(), model=EMBEDDING_MODEL)
-    embedding_db = Chroma(embedding_function=embedding_fn, persist_directory=cache_dir)
+    if 'http' in chroma_db_path:
+        parsed_url = urllib.parse.urlparse(chroma_db_path)
+        client = chromadb.HttpClient(host=parsed_url.hostname, port=parsed_url.port)
+
+        embedding_db = Chroma(client=client, embedding_function=embedding_fn)
+    else:
+        embedding_db = Chroma(embedding_function=embedding_fn, persist_directory=chroma_db_path)
     if force_cache_rebuild or not embedding_db._collection.count():
-        embedding_db = build_embeddings(embedding_fn, docs_dir, cache_dir)
+        embedding_db = build_embeddings(embedding_fn, docs_dir, chroma_db_path)
 
     return embedding_db
 
 # TODO: Move into a template file
 PROMPT_TEMPLATE = "You are a helpful chat agent. You should prioritize accuracy. If you don't know the answer, " \
-                  "you should respond with \"Please call us at {phone}\". You are chatting with a business owner who uses {customer_platform}, and should only respond with information related to {customer_platform}." \
-                  "This customer is on the {customer_tier} tier, and has the following features enabled: {features}. Use the below articles" \
-                  "to answer the question. {embedded_docs}" \
-                  "\nThis customer's question is:" \
+                  "you should respond with \"Please call us at {phone}\". You are chatting with a business owner who uses {customer_platform}, and should only respond with information related to {customer_platform}. " \
+                  "This customer is on the {customer_tier} tier, and has the following features enabled: {features}. Use the below articles " \
+                  "to answer the question.\n\n{embedded_docs}" \
+                  "\n\nThis customer's question is:" \
                   "\n{input_text}"
 
 
@@ -59,7 +67,7 @@ def chat_message(role, text):
     st.session_state.messages.append({'role': role, 'content': text})
 
 
-def st_main(docs_dir, cache_dir):
+def st_main(docs_dir, chroma_db_path, force_cache_rebuild=False):
     st.title("Mindbody CX Bot")
 
     if 'messages' not in st.session_state:
@@ -104,6 +112,10 @@ def st_main(docs_dir, cache_dir):
             ('small', 'large')
         )
 
+        debug = st.checkbox(
+            'Debug'
+        )
+
         match model_scale:
             case 'large':
                 model = 'gpt-4'
@@ -111,7 +123,7 @@ def st_main(docs_dir, cache_dir):
                 model = 'gpt-3.5-turbo'
 
     llm = langchain.llms.OpenAI(temperature=0.7, model_name=model, openai_api_key=get_openai_api_key())
-    embeddings_db = get_embeddings(docs_dir, cache_dir)
+    embeddings_db = get_embeddings_db(docs_dir, chroma_db_path, force_cache_rebuild)
 
     model = ModelWithEmbeddings(llm, embeddings_db, PROMPT_TEMPLATE)
 
@@ -119,19 +131,21 @@ def st_main(docs_dir, cache_dir):
         chat_message('user', prompt)
 
         with st.spinner():
-            response = model.submit_query(prompt, {
+            response, final_prompt = model.submit_query(prompt, {
                 'customer_platform': customer_platform,
                 'phone': phone,
                 'customer_tier': customer_tier,
                 'features': ', '.join(features)
             }, {'product': customer_platform})
+        if debug:
+            chat_message('system', final_prompt)
         chat_message('assistant', response)
 
 
 def parse_options():
     parser = argparse.ArgumentParser()
     parser.add_argument('--docs_dir', default='./docs/')
-    parser.add_argument('--cache-dir', default='./.cx_cache')
+    parser.add_argument('--chroma-db', default='./.local_chroma', help='Either local directory or server address')
     parser.add_argument('--force-cache-rebuild', default=False)
     return parser.parse_args()
 
@@ -139,4 +153,4 @@ def parse_options():
 if __name__ == '__main__':
     options = parse_options()
 
-    st_main(options.docs_dir, options.cache_dir)
+    st_main(options.docs_dir, chroma_db_path=options.chroma_db, force_cache_rebuild=options.force_cache_rebuild)
