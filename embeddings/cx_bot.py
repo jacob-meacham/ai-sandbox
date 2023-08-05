@@ -78,7 +78,7 @@ def st_main(docs_dir, chroma_db_path, force_cache_rebuild=False):
     if 'messages' not in st.session_state:
         st.session_state.messages = []
         st.session_state.messages.append({'role': 'assistant',
-                                          'content': "Welcome to Mindbody chat. I'm Happy Robot, here to answer your questions!"})
+                                          'content': "Welcome to an example built on public support articles."})
 
     for message in st.session_state.messages:
         with st.chat_message(message["role"]):

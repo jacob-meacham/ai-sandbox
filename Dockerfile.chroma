@@ -1,9 +1,8 @@
-FROM chroma-core-mac
+FROM ghcr.io/chroma-core/chroma:latest
 
 WORKDIR /chroma
 
 COPY embeddings/.cx_cache/ chroma/
-
 
 EXPOSE 8000
 
