@@ -5,6 +5,8 @@ services:
       dockerfile: Dockerfile.streamlit
     ports:
       - 8501:8501
+    environment:
+        - OPENAI_API_KEY=$OPENAI_API_KEY
     depends_on:
       - chroma
   chroma:
